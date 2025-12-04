@@ -1,8 +1,8 @@
 import os 
 from dotenv import load_dotenv
-from vectorStore import VectorStoreManager
-from ChunkAndEmbed import EmbeddingPipeline
-from data_loader import load_documents
+from src.vectorStore import VectorStoreManager
+from src.ChunkAndEmbed import EmbeddingPipeline
+from src.data_loader import load_documents
 from langchain_groq import ChatGroq
 
 load_dotenv()
@@ -110,4 +110,5 @@ if __name__ == "__main__":
 
     print("\n=== Summary ===")
     print(summary)
+
 
