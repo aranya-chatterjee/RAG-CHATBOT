@@ -1,6 +1,6 @@
 import streamlit as st
 from src.data_loader import load_documents
-from src.vectorstore import VectorStoreManager
+from src.vectorStore import VectorStoreManager
 from src.ChunkAndEmbed import EmbeddingPipeline
 from src.search import RAGSearch
 
