@@ -6,7 +6,7 @@ from langchain_community.vectorstores import FAISS
 import numpy as np 
 import pickle 
 from sentence_transformers import SentenceTransformer 
-from ChunkAndEmbed import EmbeddingPipeline
+from src.ChunkAndEmbed import EmbeddingPipeline
 
 class VectorStoreManager:
     def __init__(self, persist_path: str="faiss_store", embed_model:str="all-MiniLM-L6-v2", chunk_size:int=1000, chunk_overlap:int=200):
@@ -124,3 +124,4 @@ class VectorStoreManager:
 #     # vsm2 = VectorStoreManager()
 #     # vsm2.load()
 #     # results2 = vsm2.search("another query", top_k=3)
+
