@@ -1,7 +1,6 @@
 import streamlit as st
 from src.data_loader import load_documents
 from src.vectorStore import VectorStoreManager
-from src.ChunkAndEmbed import EmbeddingPipeline
 from src.search import RAGSearch
 
 st.set_page_config(page_title="RAG-Chatbot ", layout="wide")
