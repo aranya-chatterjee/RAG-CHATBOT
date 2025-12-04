@@ -1,8 +1,11 @@
 import streamlit as st
-from src.rag_chat import get_answer  # update this import path for your repo!
+from src.data_loader import load_documents
+from src.vectorstore import VectorStoreManager
+from src.ChunkAndEmbed import EmbeddingPipeline
+from src.search import RAGSearch
 
-st.set_page_config(page_title="RAG-Chatbot (Integrated)", layout="wide")
-st.title("RAG-Chatbot with RAG Inference")
+st.set_page_config(page_title="RAG-Chatbot ", layout="wide")
+st.title("RAG-Chatbot ")
 
 if "document" not in st.session_state:
     st.session_state.document = None
