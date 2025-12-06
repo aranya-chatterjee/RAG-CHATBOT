@@ -53,7 +53,7 @@ class RAGSearch:
     self.vectorstore = VectorStoreManager(persist_dir, embedding_model)
 
     # Load or build FAISS index
-    self._initialize_vectorstore()
+    # self._initialize_vectorstore()
 
     # Initialize LLM
     self.llm = ChatGroq(
@@ -67,21 +67,21 @@ class RAGSearch:
 
     
 
-    def _initialize_vectorstore(self):
-        """Load FAISS index if present, else build from documents."""
-        faiss_path = os.path.join(self.persist_dir, "faiss.index")
-        metadata_path = os.path.join(self.persist_dir, "metadata.pkl")
+    # def _initialize_vectorstore(self):
+    #     """Load FAISS index if present, else build from documents."""
+    #     faiss_path = os.path.join(self.persist_dir, "faiss.index")
+    #     metadata_path = os.path.join(self.persist_dir, "metadata.pkl")
 
-        if os.path.exists(faiss_path) and os.path.exists(metadata_path):
-            print("[INFO] Loading existing FAISS index...")
-            self.vectorstore.load()
-        else:
-            print("[INFO] No FAISS index found. Building a new one...")
-            docs = load_documents(self.data_dir)
-            if not docs:
-                raise ValueError("❌ No documents found to build vectorstore.")
-            # self.vectorstore.build_from_documents(docs)
-            print("[INFO] Vectorstore built successfully!")
+    #     if os.path.exists(faiss_path) and os.path.exists(metadata_path):
+    #         print("[INFO] Loading existing FAISS index...")
+    #         self.vectorstore.load()
+    #     else:
+    #         print("[INFO] No FAISS index found. Building a new one...")
+    #         docs = load_documents(self.data_dir)
+    #         if not docs:
+    #             raise ValueError("❌ No documents found to build vectorstore.")
+    #         # self.vectorstore.build_from_documents(docs)
+    #         print("[INFO] Vectorstore built successfully!")
 
    
 
@@ -135,6 +135,7 @@ if __name__ == "__main__":
 
     print("\n=== Summary ===")
     print(summary)
+
 
 
 
