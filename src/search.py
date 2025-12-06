@@ -1,11 +1,12 @@
 import os 
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from src.vectorStore import VectorStoreManager
 from src.ChunkAndEmbed import EmbeddingPipeline
 from src.data_loader import load_documents
 from langchain_groq import ChatGroq
+from langchain_core.documents import Documents 
 
-load_dotenv()
+# load_dotenv()
 
 
 class RAGSearch:
@@ -23,9 +24,12 @@ class RAGSearch:
         self.data_dir = data_dir
 
         # Load Groq API key from environment (or from .env via load_dotenv())
-        groq_api_key = os.getenv("GROQ_API_KEY")
+        if groq_api_key is None:
+            groq_api_key = os.getenv("GROQ_API_KEY")
+        
         if not groq_api_key:
-            raise ValueError("Missing GROQ_API_KEY in environment or .env")
+            raise ValueError("Missing GROQ_API_KEY. Please provide it as an argument or set it in the environment.")
+
 
         # Initialize FAISS Vector Store
         self.vectorstore = VectorStoreManager(persist_dir, embedding_model)
@@ -110,5 +114,6 @@ if __name__ == "__main__":
 
     print("\n=== Summary ===")
     print(summary)
+
 
 
