@@ -13,36 +13,56 @@ class RAGSearch:
    
 
     def __init__(
-        self,
-        persist_dir: str = "faiss_store",
-        embedding_model: str = "all-MiniLM-L6-v2",
-        llm_model: str = "gemma2-9b-it",
-        data_dir: str = "data",
-    ):
-        self.persist_dir = persist_dir
-        self.embedding_model = embedding_model
-        self.data_dir = data_dir
+    self,
+    persist_dir: str = "faiss_store",
+    embedding_model: str = "all-MiniLM-L6-v2",
+    llm_model: str = "gemma2-9b-it",
+    data_dir: str = "data",
+    groq_api_key: str = None  # ADD THIS LINE
+):
+    self.persist_dir = persist_dir
+    self.embedding_model = embedding_model
+    self.data_dir = data_dir
 
-        # Load Groq API key from environment (or from .env via load_dotenv())
-        if groq_api_key is None:
-            groq_api_key = os.getenv("GROQ_API_KEY")
+    # Get API key (priority: passed key > environment > .env > secrets)
+    if groq_api_key and groq_api_key.strip():
+        api_key = groq_api_key.strip()
+        print("[INFO] Using provided API key")
+    else:
+        # Try to get from environment or .env
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            try:
+                from dotenv import load_dotenv
+                load_dotenv()
+                api_key = os.getenv("GROQ_API_KEY")
+            except:
+                pass
         
-        if not groq_api_key:
-            raise ValueError("Missing GROQ_API_KEY. Please provide it as an argument or set it in the environment.")
+        if not api_key:
+            # Try Streamlit secrets
+            try:
+                import streamlit as st
+                if hasattr(st, 'secrets') and 'GROQ_API_KEY' in st.secrets:
+                    api_key = st.secrets['GROQ_API_KEY']
+            except:
+                pass
+    
+    if not api_key:
+        raise ValueError("Missing GROQ_API_KEY. Please provide it.")
 
+    # Initialize FAISS Vector Store
+    self.vectorstore = VectorStoreManager(persist_dir, embedding_model)
 
-        # Initialize FAISS Vector Store
-        self.vectorstore = VectorStoreManager(persist_dir, embedding_model)
+    # Load or build FAISS index
+    self._initialize_vectorstore()
 
-        # Load or build FAISS index
-        self._initialize_vectorstore()
-
-        # Initialize LLM
-        self.llm = ChatGroq(
-            groq_api_key=groq_api_key,
-            model_name=llm_model
-        )
-        print(f"[INFO] Groq LLM initialized: {llm_model}")
+    # Initialize LLM
+    self.llm = ChatGroq(
+        groq_api_key=api_key,
+        model_name=llm_model
+    )
+    print(f"[INFO] Groq LLM initialized: {llm_model}")
 
     
 
@@ -114,6 +134,7 @@ if __name__ == "__main__":
 
     print("\n=== Summary ===")
     print(summary)
+
 
 
 
