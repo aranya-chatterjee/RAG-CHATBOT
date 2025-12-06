@@ -85,7 +85,7 @@ class RAGSearch:
 
    
 
-    def search_and_summarize(self, query: str, top_k: int = 5) -> str:
+    def search(self, query: str, top_k: int = 5) -> str:
        
         # Retrieve similar chunks
         results = self.vectorstore.query(query, top_k=top_k)
@@ -131,10 +131,11 @@ if __name__ == "__main__":
     rag = RAGSearch()
 
     user_query = "What is attention mechanism?"
-    summary = rag.search_and_summarize(user_query, top_k=3)
+    summary = rag.search(user_query, top_k=3)
 
     print("\n=== Summary ===")
     print(summary)
+
 
 
 
