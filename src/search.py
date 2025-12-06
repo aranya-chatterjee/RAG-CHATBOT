@@ -4,7 +4,7 @@ from src.vectorStore import VectorStoreManager
 from src.ChunkAndEmbed import EmbeddingPipeline
 from src.data_loader import load_documents
 from langchain_groq import ChatGroq
-from langchain_core.documents import Documents 
+# from langchain_core.documents import Documents 
 
 # load_dotenv()
 
@@ -114,6 +114,7 @@ if __name__ == "__main__":
 
     print("\n=== Summary ===")
     print(summary)
+
 
 
 
