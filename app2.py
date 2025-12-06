@@ -3,6 +3,7 @@ import tempfile
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv 
 
 # Add src directory to Python path
 sys.path.append(str(Path(__file__).parent / "src"))
@@ -14,8 +15,36 @@ from search import RAGSearch
 
 st.set_page_config(page_title="RAG-Chatbot", layout="wide")
 st.title("📚 RAG-Chatbot")
+def get_groq_api_key():
+    # First, try to get from Streamlit secrets
+    try:
+        if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except:
+        pass
+
+    # Then, try to get from environment variable (might be set by Streamlit secrets or system)
+    api_key = os.getenv("GROQ_API_KEY")
+    if api_key:
+        return api_key
+
+    # Finally, try to load from .env file
+    load_dotenv()
+    api_key = os.getenv("GROQ_API_KEY")
+    if api_key:
+        return api_key
+
+    return None
+
 
 # Initialize session state
+if "groq_api_key" not in st.session_state:
+    st.session_state.groq_api_key = get_groq_api_key()
+
+# Check if API key is available
+if st.session_state.groq_api_key is None:
+    st.error("GROQ_API_KEY not found. Please set it in the .env file or Streamlit secrets.")
+    st.stop()
 if "rag_search" not in st.session_state:
     st.session_state.rag_search = None
 if "chats" not in st.session_state:
@@ -33,51 +62,29 @@ uploaded_file = st.sidebar.file_uploader(
 )
 
 # Function to process uploaded file
-def process_uploaded_file(uploaded_file):
+def process_uploaded_file(uploaded_file, groq_api_key):
     """Process the uploaded file and create RAG pipeline."""
     try:
-        # Create a temporary directory
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Save the uploaded file
-            file_path = os.path.join(temp_dir, uploaded_file.name)
-            
-            # Write file content
-            if uploaded_file.type.startswith('text/'):
-                content = uploaded_file.getvalue().decode('utf-8')
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-            else:
-                content = uploaded_file.getvalue()
-                with open(file_path, 'wb') as f:
-                    f.write(content)
-            
-            # Create a data directory for the loader
-            data_dir = os.path.join(temp_dir, "data")
-            os.makedirs(data_dir, exist_ok=True)
-            
-            # Move file to data directory
-            new_file_path = os.path.join(data_dir, uploaded_file.name)
-            os.rename(file_path, new_file_path)
-            
-            # Process with RAG
-            with st.spinner(f"Processing {uploaded_file.name}..."):
-                # Initialize RAG with the temporary data directory
-                rag_search = RAGSearch(
-                    persist_dir=os.path.join(temp_dir, "faiss_store"),
-                    data_dir=data_dir,
-                    embedding_model="all-MiniLM-L6-v2",
-                    llm_model="gemma2-9b-it"  # or "llama3-70b-8192", "mixtral-8x7b-32768"
-                )
-            
-            return rag_search, uploaded_file.name
-            
+        # ... (same as before until creating RAGSearch)
+        with st.spinner(f"Processing {uploaded_file.name}..."):
+            # Initialize RAG with the temporary data directory
+            rag_search = RAGSearch(
+                persist_dir=os.path.join(temp_dir, "faiss_store"),
+                data_dir=data_dir,
+                embedding_model="all-MiniLM-L6-v2",
+                llm_model="gemma2-9b-it",
+                groq_api_key=groq_api_key  # Pass the API key
+            )
+        
+        return rag_search, uploaded_file.name
+        
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None, None
 
-# Handle file upload
+# Then, when calling process_uploaded_file, pass the API key
 if uploaded_file and uploaded_file.name != st.session_state.get('processed_file'):
-    rag_search, filename = process_uploaded_file(uploaded_file)
+    rag_search, filename = process_uploaded_file(uploaded_file, st.session_state.groq_api_key)
     
     if rag_search:
         st.session_state.rag_search = rag_search
