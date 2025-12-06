@@ -4,7 +4,6 @@ import os
 import sys
 from pathlib import Path
 import shutil
-import time
 
 # Add src directory to Python path
 sys.path.append(str(Path(__file__).parent / "src"))
@@ -71,6 +70,53 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Function to check API key from multiple sources
+def check_api_key():
+    """Check if API key is available from any source"""
+    try:
+        # Priority 1: Streamlit Secrets (for Streamlit Cloud)
+        if hasattr(st, 'secrets'):
+            if 'GROQ_API_KEY' in st.secrets:
+                api_key = st.secrets['GROQ_API_KEY']
+                if api_key and len(api_key.strip()) > 10:
+                    st.session_state.api_key_source = "Streamlit Secrets"
+                    return True, api_key
+        
+        # Priority 2: Environment variable
+        api_key = os.getenv("GROQ_API_KEY")
+        if api_key and len(api_key.strip()) > 10:
+            st.session_state.api_key_source = "Environment Variable"
+            return True, api_key
+        
+        # Priority 3: .env file
+        try:
+            from dotenv import load_dotenv
+            # Try multiple .env locations
+            env_paths = [
+                '.env',
+                '../.env',
+                os.path.join(os.path.dirname(__file__), '.env'),
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+            ]
+            
+            for env_path in env_paths:
+                if os.path.exists(env_path):
+                    load_dotenv(env_path)
+                    api_key = os.getenv("GROQ_API_KEY")
+                    if api_key and len(api_key.strip()) > 10:
+                        st.session_state.api_key_source = f".env file ({env_path})"
+                        return True, api_key
+        except ImportError:
+            pass  # dotenv not installed
+        except Exception as e:
+            print(f"Error loading .env: {e}")
+        
+        return False, None
+        
+    except Exception as e:
+        print(f"Error checking API key: {e}")
+        return False, None
+
 # Initialize session state
 def init_session_state():
     if "rag_search" not in st.session_state:
@@ -87,8 +133,19 @@ def init_session_state():
         st.session_state.processing_error = None
     if "file_preview" not in st.session_state:
         st.session_state.file_preview = None
+    if "api_key_status" not in st.session_state:
+        st.session_state.api_key_status = "unknown"
+    if "api_key_source" not in st.session_state:
+        st.session_state.api_key_source = None
 
 init_session_state()
+
+# Check API key on startup
+api_key_available, api_key = check_api_key()
+if api_key_available:
+    st.session_state.api_key_status = "available"
+else:
+    st.session_state.api_key_status = "missing"
 
 def cleanup_temp_files():
     """Clean up temporary files"""
@@ -180,12 +237,18 @@ def process_document(uploaded_file):
         # Import RAGSearch here to avoid circular imports
         from search import RAGSearch
         
+        # Get API key to pass to RAGSearch
+        api_key_available, api_key = check_api_key()
+        if not api_key_available:
+            raise ValueError("API key not found. Please check your configuration.")
+        
         # Initialize RAG with the temporary directory
         rag_search = RAGSearch(
             persist_dir=os.path.join(temp_dir, "faiss_store"),
             data_dir=data_dir,
             embedding_model="all-MiniLM-L6-v2",
-            llm_model="gemma2-9b-it"
+            llm_model="gemma2-9b-it",
+            groq_api_key=api_key  # Pass the API key directly
         )
         
         return rag_search, uploaded_file.name
@@ -199,6 +262,44 @@ def process_document(uploaded_file):
 # Sidebar
 with st.sidebar:
     st.title("🤖 RAG Chatbot")
+    st.markdown("---")
+    
+    # API Key Status Display
+    if st.session_state.api_key_status == "available":
+        st.markdown(f"""
+        <div class="success-box">
+        ✅ **API Key Status:** Available
+        <small>Source: {st.session_state.api_key_source}</small>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="error-box">
+        ⚠️ **API Key Status:** Missing
+        <small>Required for document processing</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Instructions for setting up API key
+    with st.expander("🔑 How to set API key", expanded=False):
+        st.markdown("""
+        **For Local Development:**
+        1. Create `.env` file in project root
+        2. Add: `GROQ_API_KEY=your_key_here`
+        
+        **For Streamlit Cloud:**
+        1. Go to app settings → Secrets
+        2. Add:
+        ```toml
+        GROQ_API_KEY = "your_key_here"
+        ```
+        
+        **Get Free API Key:**
+        - Visit [Groq Console](https://console.groq.com)
+        - Sign up for free account
+        - Create API key
+        """)
+    
     st.markdown("---")
     
     # File Upload Section
@@ -220,28 +321,32 @@ with st.sidebar:
             file_size = len(uploaded_file.getvalue())
             st.caption(f"{file_size/1024:.1f} KB" if file_size < 1024*1024 else f"{file_size/(1024*1024):.1f} MB")
         
-        # Process button
-        if st.button("🚀 Process Document", type="primary", use_container_width=True):
-            with st.spinner(f"Processing {uploaded_file.name}..."):
-                try:
-                    # Process the document
-                    rag_search, filename = process_document(uploaded_file)
-                    
-                    # Update session state
-                    st.session_state.rag_search = rag_search
-                    st.session_state.processed_file = filename
-                    st.session_state.chats = []
-                    st.session_state.processing_done = True
-                    st.session_state.processing_error = None
-                    
-                    st.success(f"✅ Document processed successfully!")
-                    st.balloons()
-                    
-                except Exception as e:
-                    st.session_state.processing_error = str(e)
-                    st.error(f"❌ Error: {str(e)}")
-                    # Cleanup temp files on error
-                    cleanup_temp_files()
+        # Check API key before allowing processing
+        if st.session_state.api_key_status != "available":
+            st.warning("⚠️ Please set up API key first (see instructions above)")
+        else:
+            # Process button
+            if st.button("🚀 Process Document", type="primary", use_container_width=True):
+                with st.spinner(f"Processing {uploaded_file.name}..."):
+                    try:
+                        # Process the document
+                        rag_search, filename = process_document(uploaded_file)
+                        
+                        # Update session state
+                        st.session_state.rag_search = rag_search
+                        st.session_state.processed_file = filename
+                        st.session_state.chats = []
+                        st.session_state.processing_done = True
+                        st.session_state.processing_error = None
+                        
+                        st.success(f"✅ Document processed successfully!")
+                        st.balloons()
+                        
+                    except Exception as e:
+                        st.session_state.processing_error = str(e)
+                        st.error(f"❌ Error: {str(e)}")
+                        # Cleanup temp files on error
+                        cleanup_temp_files()
     
     # Show current document
     if st.session_state.processed_file:
@@ -272,12 +377,11 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Requirements
+    # Deployment info
     st.caption("""
-    **Requirements:**
-    1. `.env` file with `GROQ_API_KEY`
-    2. Required packages installed
-    3. Internet connection for API calls
+    **Deployment:**
+    - Local: Use `.env` file
+    - Streamlit Cloud: Use app secrets
     """)
 
 # Main content
@@ -331,12 +435,21 @@ if st.session_state.rag_search and st.session_state.processing_done:
 
 else:
     # Welcome/Instructions screen
-    st.markdown("""
-    <div class="info-box">
-    <h3>📚 Welcome to RAG Chatbot!</h3>
-    <p>Upload a document and ask questions about its content using AI-powered search.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    if st.session_state.api_key_status == "available":
+        st.markdown("""
+        <div class="info-box">
+        <h3>📚 Welcome to RAG Chatbot!</h3>
+        <p>✅ API key detected. Upload a document to start chatting!</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="error-box">
+        <h3>⚠️ API Key Required</h3>
+        <p>Please set up your GROQ_API_KEY to use the chatbot.</p>
+        <p>See sidebar for instructions.</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Show error if any
     if st.session_state.processing_error:
@@ -369,7 +482,7 @@ else:
         st.markdown("""
         ### 🚀 **Quick Start**
         1. Get API key from [Groq Console](https://console.groq.com)
-        2. Create `.env` file with your key
+        2. Set API key (sidebar instructions)
         3. Upload document in sidebar 👈
         4. Start chatting!
         """)
