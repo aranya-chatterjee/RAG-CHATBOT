@@ -185,7 +185,7 @@ def process_document(uploaded_file):
             persist_dir=os.path.join(temp_dir, "faiss_store"),
             data_dir=data_dir,
             embedding_model="all-MiniLM-L6-v2",
-            llm_model="llama-3.3-70b-versatile"
+            llm_model="gemma2-9b-it"
         )
         
         return rag_search, uploaded_file.name
