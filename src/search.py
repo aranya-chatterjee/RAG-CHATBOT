@@ -10,9 +10,7 @@ from langchain_groq import ChatGroq
 
 
 class RAGSearch:
-   
-
-    def __init__(
+   def __init__(
     self,
     persist_dir: str = "faiss_store",
     embedding_model: str = "all-MiniLM-L6-v2",
@@ -63,6 +61,9 @@ class RAGSearch:
         model_name=llm_model
     )
     print(f"[INFO] Groq LLM initialized: {llm_model}")
+   
+
+    
 
     
 
@@ -134,6 +135,7 @@ if __name__ == "__main__":
 
     print("\n=== Summary ===")
     print(summary)
+
 
 
 
