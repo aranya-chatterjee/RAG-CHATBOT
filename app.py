@@ -61,17 +61,7 @@ if st.session_state.doc_uploaded:
         if not docs:
             st.error("No valid documents found. Please upload at least one supported file.")
         else:
-            st.session_state.documents = docs
-            st.session_state.embedding_pipeline = EmbeddingPipeline()
-
-            # Initialize vector store manager and build vector index
-            st.session_state.vector_manager = VectorStoreManager(
-                persist_path=persist_dir,
-                embed_model="all-MiniLM-L6-v2"
-            )
-            st.session_state.vector_manager.build_vector_store(docs)
-            st.success("Vector store built! You can now query your documents.")
-
+            st.success(f"{len(docs)} documents loaded!")
             # Create RAGSearch (LLM fallback)
             api_key = get_groq_api_key()
             if api_key:
