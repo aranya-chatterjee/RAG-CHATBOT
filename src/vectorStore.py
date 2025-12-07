@@ -12,7 +12,11 @@ class VectorStoreManager:
     def __init__(self, persist_path: str="faiss_store", embed_model:str="all-MiniLM-L6-v2", chunk_size:int=1000, chunk_overlap:int=200):
         self.persist_path = persist_path
         self.embed_model = embed_model
-        self.embedding_pipeline = EmbeddingPipeline(model_name=self.embed_model)
+        self.embedding_pipeline = EmbeddingPipeline(
+            model_name=self.embed_model,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.vector_store = None
@@ -40,12 +44,13 @@ class VectorStoreManager:
         index_to_docstore_id = {i: f"chunk_{i}" for i in range(len(metadatas))}
         
         # Create docstore with proper content
-        docstore_dict = {}
-        for i in range(len(metadatas)):
-            docstore_dict[f"chunk_{i}"] = {
-                "page_content": chunks[i],  # Store the actual chunk content
-                "metadata": metadatas[i]
+        docstore_dict = {
+            f"chunk_{i}": {
+                "page_content": chunks[i],
+                "metadata": metadatas[i],
             }
+            for i in range(len(metadatas))
+        }
         
         docstore = InMemoryDocstore(docstore_dict)
         
@@ -77,32 +82,39 @@ class VectorStoreManager:
         index_path = os.path.join(self.persist_path, "faiss_index.idx")
         docstore_path = os.path.join(self.persist_path, "docstore.pkl")
         index_to_docstore_id_path = os.path.join(self.persist_path, "index_to_docstore_id.pkl")
+        try:
+            if all(os.path.exists(path) for path in [index_path, docstore_path, index_to_docstore_id_path]):
+                index = faiss.read_index(index_path)
+                with open(docstore_path, "rb") as f:
+                    docstore = pickle.load(f)
+                with open(index_to_docstore_id_path, "rb") as f:
+                    index_to_docstore_id = pickle.load(f)
+                self.vector_store = FAISS(
+                    embedding_function=None,
+                    index=index,
+                    docstore=docstore,
+                    index_to_docstore_id=index_to_docstore_id,
+                )
+                print(f"[INFO] Vector store loaded from {self.persist_path}")
+            else:
+                raise FileNotFoundError("[ERROR] Vector store files not found.")
+        except Exception as e:
+            print(f"[ERROR] Failed to load vector store: {e}")
         
-        if all(os.path.exists(path) for path in [index_path, docstore_path, index_to_docstore_id_path]):
-            index = faiss.read_index(index_path)
-            with open(docstore_path, "rb") as f:
-                docstore = pickle.load(f)
-            with open(index_to_docstore_id_path, "rb") as f:
-                index_to_docstore_id = pickle.load(f)
-            
-            self.vector_store = FAISS(
-                embedding_function=None, 
-                index=index, 
-                docstore=docstore,
-                index_to_docstore_id=index_to_docstore_id
-            )
-            print(f"[INFO] Vector store loaded from {self.persist_path}")
-        else:
-            print("[ERROR] Vector store files not found.")
     
-    def query(self, query_text: str, top_k: int = 5) -> List[Any]:  
+    def query(self, query_text: str, top_k: int = 5) -> List[Any]:
         if self.vector_store is None:
             print("[ERROR] Vector store not loaded.")
             return []
-        query_embedding = self.embedding_pipeline.model.encode([query_text], show_progress_bar=False)
-        results = self.vector_store.similarity_search_by_vector(query_embedding[0], k=top_k)
-        print(f"[INFO] Retrieved {len(results)} results for the query.")
-        return results
+        try:
+            query_embedding = self.embedding_pipeline.model.encode([query_text], show_progress_bar=False)
+            results = self.vector_store.similarity_search_by_vector(np.array(query_embedding[0], dtype="float32"), k=top_k)
+            print(f"[INFO] Retrieved {len(results)} results for the query.")
+            return results
+        except Exception as e:
+            print(f"[ERROR] Vector query failed: {e}")
+            return []
+        
     
     def search(self, query_text: str, top_k: int = 5) -> List[Any]:
         return self.query(query_text, top_k)
@@ -124,4 +136,5 @@ class VectorStoreManager:
 #     # vsm2 = VectorStoreManager()
 #     # vsm2.load()
 #     # results2 = vsm2.search("another query", top_k=3)
+
 
