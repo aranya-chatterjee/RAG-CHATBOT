@@ -264,7 +264,7 @@ def process_document(uploaded_file):
             persist_dir=os.path.join(temp_dir, "faiss_store"),
             data_dir=data_dir,
             embedding_model="all-MiniLM-L6-v2",
-            llm_model="gemma2-9b-it",
+            llm_model="llama-3.1-8b-instant",
             groq_api_key=api_key  # Pass the API key directly
         )
         
