@@ -235,6 +235,23 @@ def process_document(uploaded_file):
         st.session_state.file_preview = get_file_preview(file_bytes, uploaded_file.name)
         
         # Import RAGSearch here to avoid circular imports
+        # Add this right before calling search() in main.py:
+
+        print("=" * 50)
+        print("DEBUG INFO:")
+        print(f"rag_search object: {st.session_state.rag_search}")
+        print(f"Has search method? {hasattr(st.session_state.rag_search, 'search')}")
+        print(f"Data dir: {st.session_state.rag_search.data_dir if hasattr(st.session_state.rag_search, 'data_dir') else 'No data_dir attr'}")
+        
+        # Test the search method directly
+        try:
+            test_result = st.session_state.rag_search.search("test query")
+            print(f"Test search result: {test_result}")
+        except Exception as e:
+            print(f"Error calling search: {e}")
+            import traceback
+            traceback.print_exc()
+        print("=" * 50)
         from search import RAGSearch
         
         # Get API key to pass to RAGSearch
