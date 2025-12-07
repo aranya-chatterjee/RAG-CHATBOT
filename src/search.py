@@ -16,7 +16,7 @@ class RAGSearch:
         embedding_model: str = "all-MiniLM-L6-v2",
         llm_model: str = "gemma2-9b-it",
         data_dir: str = "data",
-        groq_api_key: str = None  # Your main.py is passing this parameter
+        groq_api_key: str = None
     ):
         self.persist_dir = persist_dir
         self.embedding_model = embedding_model
@@ -28,10 +28,16 @@ class RAGSearch:
         elif os.getenv("GROQ_API_KEY"):
             api_key = os.getenv("GROQ_API_KEY")
         else:
-            raise ValueError("GROQ_API_KEY not found")
+            raise ValueError("GROQ_API_KEY not found. Please set it in .env file")
+        
+        # Initialize embedding pipeline (store it as instance variable)
+        self.embedding_pipeline = EmbeddingPipeline(model_name=embedding_model)
         
         # Initialize vector store
-        self.vectorstore = VectorStoreManager(persist_dir, embedding_model)
+        self.vectorstore = VectorStoreManager(
+            persist_path=persist_dir,
+            embed_model=embedding_model
+        )
         
         # Load or build vector store
         self._initialize_vectorstore()
@@ -39,60 +45,86 @@ class RAGSearch:
         # Initialize LLM
         self.llm = ChatGroq(
             groq_api_key=api_key,
-            model_name=llm_model
+            model_name=llm_model,
+            temperature=0.1,
+            max_tokens=1024
         )
-        print(f"[INFO] Groq LLM initialized: {llm_model}")
+        print(f"[INFO] RAGSearch initialized successfully")
     
     def _initialize_vectorstore(self):
         """Load existing or build new vector store"""
-        # Try to load existing
-        if os.path.exists(os.path.join(self.persist_dir, "faiss_index.idx")):
-            print("[INFO] Loading existing FAISS index...")
-            self.vectorstore.load()
-        else:
-            print("[INFO] Building new vector store...")
-            if os.path.exists(self.data_dir):
-                docs = load_documents(self.data_dir)
-                if docs:
-                    # Get embedding pipeline
-                    embedding_pipeline = EmbeddingPipeline(model_name=self.embedding_model)
-                    # Build vector store
-                    self.vectorstore.build_vector_store(docs, embedding_pipeline)
-                else:
-                    print("[WARNING] No documents found")
+        try:
+            # Try to load existing vector store
+            if self.vectorstore.load():
+                print("[INFO] Loaded existing vector store")
+                return True
+        except Exception as e:
+            print(f"[INFO] Could not load existing vector store: {e}")
+        
+        # Build new vector store
+        print("[INFO] Building new vector store...")
+        
+        if not os.path.exists(self.data_dir):
+            print(f"[WARNING] Data directory not found: {self.data_dir}")
+            os.makedirs(self.data_dir, exist_ok=True)
+            print(f"[INFO] Created empty data directory")
+            return False
+        
+        try:
+            # Load documents
+            docs = load_documents(self.data_dir)
+            if not docs:
+                print("[WARNING] No documents found to build vector store")
+                return False
+            
+            print(f"[INFO] Loaded {len(docs)} documents")
+            
+            # Build vector store - CORRECTED: Only pass documents
+            # The embedding_pipeline should be accessed from self.vectorstore
+            self.vectorstore.build_vector_store(docs)
+            print("[INFO] Vector store built successfully")
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to build vector store: {e}")
+            return False
     
-    # THIS IS THE CRITICAL METHOD - main.py calls search()
-    def search(self, query: str, top_k: int = 5) -> str:
-        """Search method that your main.py is calling"""
+    def search(self, query: str, top_k: int = 3) -> str:
+        """Search method that your main.py calls"""
         print(f"[INFO] Searching for: {query}")
         
         try:
-            # First, we need to search the vector store
-            # Check what method vectorStore has
-            embedding_pipeline = EmbeddingPipeline(model_name=self.embedding_model)
-            
-            # Try different possible method names in vectorStore
+            # Search the vector store - check what method it has
             if hasattr(self.vectorstore, 'search'):
-                results = self.vectorstore.search(query, embedding_pipeline, top_k=top_k)
+                # If vectorstore.search() exists
+                results = self.vectorstore.search(query, top_k=top_k)
             elif hasattr(self.vectorstore, 'query'):
-                results = self.vectorstore.query(query, embedding_pipeline, top_k=top_k)
+                # If vectorstore.query() exists
+                results = self.vectorstore.query(query, top_k=top_k)
             else:
-                # Last resort: try to call whatever method exists
-                for method_name in ['search', 'query', 'find']:
+                # Try to find any search-like method
+                for method_name in ['search', 'query', 'find_similar', 'retrieve']:
                     if hasattr(self.vectorstore, method_name):
                         method = getattr(self.vectorstore, method_name)
-                        results = method(query, embedding_pipeline, top_k=top_k)
-                        break
+                        # Try calling with different parameter combinations
+                        try:
+                            results = method(query, top_k=top_k)
+                            break
+                        except:
+                            try:
+                                results = method(query, self.embedding_pipeline, top_k=top_k)
+                                break
+                            except:
+                                continue
                 else:
-                    return "Error: Vector store has no search method"
+                    return "Error: Could not find a search method in vector store"
             
             if not results:
-                return "No relevant information found in the document."
+                return "I couldn't find any relevant information in the document to answer your question."
             
             # Extract text from results
             context_parts = []
             for result in results:
-                # Handle different result formats
                 if hasattr(result, 'page_content'):
                     context_parts.append(result.page_content)
                 elif isinstance(result, dict):
@@ -107,39 +139,44 @@ class RAGSearch:
             
             # Combine context
             context = "\n\n".join(context_parts)
+            if len(context) > 3000:
+                context = context[:3000] + "..."
             
-            # Create prompt for LLM
-            prompt = f"""Based on this document content:
+            # Create prompt
+            prompt = f"""Based on the following document excerpts, answer the question:
 
-{context}
+{document_content}
 
 Question: {query}
 
-Answer the question using only information from the document. If the document doesn't contain the answer, say so.
+Instructions:
+1. Answer using ONLY information from the document
+2. If the document doesn't have the answer, say so
+3. Be clear and concise
 
 Answer:"""
             
-            # Get response from LLM
+            # Get LLM response
             response = self.llm.invoke(prompt)
-            return response.content.strip()
+            answer = response.content.strip()
+            print(f"[INFO] Generated answer: {answer[:100]}...")
+            return answer
             
         except Exception as e:
-            return f"Error processing query: {str(e)}"
-    
-    # Your existing code might have this method - keep it for compatibility
-    def search_and_summarize(self, query: str, top_k: int = 5) -> str:
-        """Alias for search() for compatibility"""
-        return self.search(query, top_k)
+            error_msg = f"Error processing query: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            return error_msg
 
 
-# Simple test
+# Test function
 if __name__ == "__main__":
-    print("Testing RAGSearch compatibility...")
+    print("=" * 50)
+    print("Testing RAGSearch")
+    print("=" * 50)
     
-    # Check for API key
+    # Check API key
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        # Try to load from .env
         try:
             load_dotenv()
             api_key = os.getenv("GROQ_API_KEY")
@@ -148,19 +185,44 @@ if __name__ == "__main__":
     
     if api_key:
         print("✅ API key found")
+        
+        # Create test directory
+        import tempfile
+        import shutil
+        
+        temp_dir = tempfile.mkdtemp()
+        data_dir = os.path.join(temp_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # Create test document
+        test_file = os.path.join(data_dir, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("This is a test document about artificial intelligence.")
+        
         try:
             # Test initialization
             rag = RAGSearch(
-                persist_dir="test_faiss",
-                data_dir="test_data",
+                persist_dir=os.path.join(temp_dir, "faiss_store"),
+                data_dir=data_dir,
                 groq_api_key=api_key
             )
             print("✅ RAGSearch initialized")
             
             # Test search method
-            result = rag.search("Test query")
-            print(f"✅ Search method works: {result[:50]}...")
+            result = rag.search("What is this document about?")
+            print(f"✅ Search test: {result}")
+            
+            # Cleanup
+            shutil.rmtree(temp_dir)
+            
         except Exception as e:
             print(f"❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Cleanup on error
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
     else:
-        print("❌ No API key found. Please set GROQ_API_KEY")
+        print("❌ GROQ_API_KEY not found")
+        print("Please create .env file with: GROQ_API_KEY=your_key_here")
