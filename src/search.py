@@ -30,7 +30,7 @@ class RAGSearch:
         else:
             raise ValueError("GROQ_API_KEY not found. Please set it in .env file")
         
-        # Initialize embedding pipeline (store it as instance variable)
+        # Initialize embedding pipeline
         self.embedding_pipeline = EmbeddingPipeline(model_name=embedding_model)
         
         # Initialize vector store
@@ -79,52 +79,81 @@ class RAGSearch:
             
             print(f"[INFO] Loaded {len(docs)} documents")
             
-            # Build vector store - CORRECTED: Only pass documents
-            # The embedding_pipeline should be accessed from self.vectorstore
-            self.vectorstore.build_vector_store(docs)
-            print("[INFO] Vector store built successfully")
+            # Build vector store - FIXED: Check what parameters it needs
+            try:
+                # Try with documents only
+                self.vectorstore.build_vector_store(docs)
+                print("[INFO] Vector store built successfully (1 parameter)")
+            except TypeError as e:
+                # If that fails, try with embedding pipeline
+                print(f"[DEBUG] Trying with embedding pipeline: {e}")
+                self.vectorstore.build_vector_store(docs, self.embedding_pipeline)
+                print("[INFO] Vector store built successfully (2 parameters)")
+            
             return True
             
         except Exception as e:
             print(f"[ERROR] Failed to build vector store: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def search(self, query: str, top_k: int = 3) -> str:
         """Search method that your main.py calls"""
-        print(f"[INFO] Searching for: {query}")
+        print(f"[INFO] Searching for: '{query}'")
         
         try:
-            # Search the vector store - check what method it has
+            # First, let's check what search methods are available
+            print("[DEBUG] Available methods in vectorstore:", 
+                  [m for m in dir(self.vectorstore) if 'search' in m.lower() or 'query' in m.lower()])
+            
+            results = None
+            
+            # Try different search method approaches
             if hasattr(self.vectorstore, 'search'):
-                # If vectorstore.search() exists
-                results = self.vectorstore.search(query, top_k=top_k)
+                print("[DEBUG] Trying vectorstore.search()")
+                try:
+                    results = self.vectorstore.search(query, self.embedding_pipeline, top_k=top_k)
+                except TypeError:
+                    # Try without embedding_pipeline
+                    results = self.vectorstore.search(query, top_k=top_k)
+                    
             elif hasattr(self.vectorstore, 'query'):
-                # If vectorstore.query() exists
-                results = self.vectorstore.query(query, top_k=top_k)
-            else:
-                # Try to find any search-like method
+                print("[DEBUG] Trying vectorstore.query()")
+                try:
+                    results = self.vectorstore.query(query, self.embedding_pipeline, top_k=top_k)
+                except TypeError:
+                    # Try without embedding_pipeline
+                    results = self.vectorstore.query(query, top_k=top_k)
+            
+            if results is None:
+                # Last resort: try any method
                 for method_name in ['search', 'query', 'find_similar', 'retrieve']:
                     if hasattr(self.vectorstore, method_name):
+                        print(f"[DEBUG] Trying {method_name}()")
                         method = getattr(self.vectorstore, method_name)
-                        # Try calling with different parameter combinations
                         try:
-                            results = method(query, top_k=top_k)
+                            results = method(query, self.embedding_pipeline, top_k=top_k)
                             break
-                        except:
+                        except TypeError:
                             try:
-                                results = method(query, self.embedding_pipeline, top_k=top_k)
+                                results = method(query, top_k=top_k)
                                 break
                             except:
                                 continue
-                else:
-                    return "Error: Could not find a search method in vector store"
+            
+            if results is None:
+                return "Error: Could not search the vector store. Check vectorStore.py methods."
+            
+            print(f"[INFO] Found {len(results) if results else 0} results")
             
             if not results:
                 return "I couldn't find any relevant information in the document to answer your question."
             
             # Extract text from results
             context_parts = []
-            for result in results:
+            for i, result in enumerate(results):
+                print(f"[DEBUG] Result {i} type: {type(result)}")
                 if hasattr(result, 'page_content'):
                     context_parts.append(result.page_content)
                 elif isinstance(result, dict):
@@ -134,18 +163,22 @@ class RAGSearch:
                         context_parts.append(result['text'])
                     elif 'content' in result:
                         context_parts.append(result['content'])
+                    else:
+                        context_parts.append(str(result))
                 else:
                     context_parts.append(str(result))
             
             # Combine context
             context = "\n\n".join(context_parts)
+            print(f"[DEBUG] Context length: {len(context)} characters")
+            
             if len(context) > 3000:
                 context = context[:3000] + "..."
             
-            # Create prompt
+            # FIXED: Use 'context' variable, not 'document_content'
             prompt = f"""Based on the following document excerpts, answer the question:
 
-{document_content}
+{context}
 
 Question: {query}
 
@@ -153,8 +186,11 @@ Instructions:
 1. Answer using ONLY information from the document
 2. If the document doesn't have the answer, say so
 3. Be clear and concise
+4. Provide helpful information based on what's available
 
 Answer:"""
+            
+            print(f"[INFO] Sending prompt to LLM ({len(prompt)} chars)")
             
             # Get LLM response
             response = self.llm.invoke(prompt)
@@ -165,13 +201,15 @@ Answer:"""
         except Exception as e:
             error_msg = f"Error processing query: {str(e)}"
             print(f"[ERROR] {error_msg}")
-            return error_msg
+            import traceback
+            traceback.print_exc()
+            return f"Sorry, I encountered an error: {str(e)}"
 
 
-# Test function
+# Simple test
 if __name__ == "__main__":
     print("=" * 50)
-    print("Testing RAGSearch")
+    print("Testing RAGSearch - Debug Mode")
     print("=" * 50)
     
     # Check API key
@@ -197,23 +235,33 @@ if __name__ == "__main__":
         # Create test document
         test_file = os.path.join(data_dir, "test.txt")
         with open(test_file, "w") as f:
-            f.write("This is a test document about artificial intelligence.")
+            f.write("Artificial Intelligence (AI) is the simulation of human intelligence in machines. Machine learning is a subset of AI. Deep learning is a subset of machine learning using neural networks.")
         
         try:
             # Test initialization
+            print(f"[TEST] Data dir: {data_dir}")
             rag = RAGSearch(
                 persist_dir=os.path.join(temp_dir, "faiss_store"),
                 data_dir=data_dir,
-                groq_api_key=api_key
+                groq_api_key=api_key,
+                llm_model="gemma2-9b-it"
             )
             print("✅ RAGSearch initialized")
             
             # Test search method
-            result = rag.search("What is this document about?")
-            print(f"✅ Search test: {result}")
+            test_queries = [
+                "What is AI?",
+                "What is machine learning?"
+            ]
+            
+            for q in test_queries:
+                print(f"\n[TEST] Query: {q}")
+                result = rag.search(q, top_k=2)
+                print(f"[TEST] Result: {result[:100]}...")
             
             # Cleanup
             shutil.rmtree(temp_dir)
+            print("\n✅ All tests passed!")
             
         except Exception as e:
             print(f"❌ Error: {e}")
@@ -226,3 +274,6 @@ if __name__ == "__main__":
     else:
         print("❌ GROQ_API_KEY not found")
         print("Please create .env file with: GROQ_API_KEY=your_key_here")
+      
+         
+                
