@@ -80,7 +80,7 @@ if uploaded_files:
             st.session_state.rag_search = RAGSearch(
                 persist_dir=persist_dir,
                 embedding_model="all-MiniLM-L6-v2",
-                llm_model="gemma2-9b-it",
+                llm_model="llama2-70b",
                 data_dir=data_dir,
                 groq_api_key=api_key,
             )
