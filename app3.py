@@ -411,19 +411,41 @@ if st.session_state.rag_search and st.session_state.processing_done:
         # Display user message
         with st.chat_message("user"):
             st.write(user_input)
-        
+
         # Generate response
         with st.chat_message("assistant"):
+
             with st.spinner("Thinking..."):
                 try:
-                    # Get answer from RAG system
-                    answer = st.session_state.rag_search.search(user_input, top_k=top_k)
-                    st.write(answer)
-                    st.session_state.chats[-1]["assistant"] = answer
+                    # Try different method names
+                    if hasattr(st.session_state.rag_search, 'search'):
+                        answer = st.session_state.rag_search.search(user_input, top_k=top_k)
+                    elif hasattr(st.session_state.rag_search, 'search_and_summarize'):
+                        answer = st.session_state.rag_search.search_and_summarize(user_input, top_k=top_k)
+                    elif hasattr(st.session_state.rag_search, 'query'):
+                        answer = st.session_state.rag_search.query(user_input, top_k=top_k)
+                    else:
+                        answer = "Error: RAG system doesn't have a search method"
+                        st.write(answer)
+                        st.session_state.chats[-1]["assistant"] = answer
                 except Exception as e:
                     error_msg = f"⚠️ Error generating response: {str(e)}"
                     st.error(error_msg)
                     st.session_state.chats[-1]["assistant"] = error_msg
+    
+        
+        # Generate response
+        # with st.chat_message("assistant"):
+        #     with st.spinner("Thinking..."):
+        #         try:
+        #             # Get answer from RAG system
+        #             answer = st.session_state.rag_search.search(user_input, top_k=top_k)
+        #             st.write(answer)
+        #             st.session_state.chats[-1]["assistant"] = answer
+        #         except Exception as e:
+        #             error_msg = f"⚠️ Error generating response: {str(e)}"
+        #             st.error(error_msg)
+        #             st.session_state.chats[-1]["assistant"] = error_msg
     
     # Clear chat button
     if st.session_state.chats:
