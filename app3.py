@@ -252,6 +252,15 @@ def process_document(uploaded_file):
         )
         
         return rag_search, uploaded_file.name
+                # In main.py, after rag_search = RAGSearch(...)
+        print("DEBUG: Checking if search method exists...")
+        print("Type of rag_search:", type(rag_search))
+        print("Has search method?", hasattr(rag_search, 'search'))
+        print("Available methods:", [m for m in dir(rag_search) if not m.startswith('_')])
+        
+        # Test the search method directly
+        test_result = rag_search.search("test")
+        print("Test search result:", test_result[:100])
         
     except Exception as e:
         # Cleanup on error
