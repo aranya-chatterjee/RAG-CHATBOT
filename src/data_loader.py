@@ -19,17 +19,25 @@ def load_documents(data_dir : str) -> List[Any]:
     
     documents = []
     data_path = Path(data_dir)
-    
     for file_path in data_path.iterdir():
-        if file_path.suffix in loaders:
-            loader_class = loaders[file_path.suffix]
-            loader = loader_class(str(file_path))
-            documents.extend(loader.load())
+        if not file_path.is_file() or file_path.name.startswith('.'):
+            # Ignore directories and hidden files
+            continue
+        
+        ext = file_path.suffix.lower()
+        if ext in loaders:
+            loader_class = loaders[ext]
+            try:
+                loader = loader_class(str(file_path))
+                documents.extend(loader.load())
+            except Exception as e:
+                print(f"Error loading {file_path.name} with {loader_class.__name__}: {e}")
         else:
             print(f"Unsupported file type: {file_path.suffix}")
-    
+
     return documents
-# testing the code 
+    
+    
 
 # if __name__ == "__main__":
     
@@ -37,4 +45,5 @@ def load_documents(data_dir : str) -> List[Any]:
 #     documents = load_documents("src\transformer.pdf")
 #     print(f"Loaded {len(documents)} documents")
 #     for doc in documents:
+
 #         print(f"Content preview: {doc.page_content[:200]}...")
