@@ -12,7 +12,7 @@ class RAGSearch:
         self,
         persist_dir: str = "faiss_store",
         embedding_model: str = "all-MiniLM-L6-v2",
-        llm_model: str = "llama2-70b",
+        llm_model: str = "llama-3.1-8b-instant",
         data_dir: str = "data",
         groq_api_key: str = None
     ):
@@ -91,5 +91,6 @@ if __name__ == "__main__":
         print(f"Test result: {result}")
     else:
         print("ERROR: No GROQ_API_KEY found in .env file")
+
 
 
