@@ -17,4 +17,6 @@ sqlalchemy
 pydantic
 streamlit
 requests
+numpy
+pickle-mixin
 
