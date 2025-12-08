@@ -39,13 +39,18 @@ class EmbeddingPipeline:
         Generate embeddings for each chunk.
         """
         try:
+            if not chunks:
+                print("[WARNING] No chunks to embed")
+                return np.array([])
+            
+            print(f"[INFO] Embedding {len(chunks)} chunks...")
             embeddings = self.model.encode(chunks, show_progress_bar=True, batch_size=batch_size)
-            print(f"Generated embeddings for {len(chunks)} chunks.")
+            print(f"[INFO] Generated embeddings shape: {embeddings.shape}")
             return embeddings
         except Exception as e:
-            print(f"Error in embedding chunks: {e}")
+            print(f"[ERROR] Error in embedding chunks: {e}")
             raise
-    
+   
 # if __name__ == "__main__":
     
 #     docs = load_documents("data")
@@ -54,4 +59,5 @@ class EmbeddingPipeline:
 #     embeddings = emb_pipe.embed_chunks(chunks)
 
 #     print("[INFO] Example embedding:", embeddings[0] if len(embeddings) > 0 else None)p
+
 
