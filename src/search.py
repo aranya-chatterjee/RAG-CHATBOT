@@ -19,6 +19,7 @@ class RAGSearch:
         llm_model: str = "llama-3.1-8b-instant",
         data_dir: str = "data",
         groq_api_key: str = None
+        vector_store=None  
     ):
         print(f"[RAGSearch] Initializing with data_dir: {data_dir}")
 
@@ -30,27 +31,20 @@ class RAGSearch:
 
         self.data_dir = data_dir
         self.llm_model = llm_model
+        self.vector_store = vector_store
         print(f"[RAGSearch] Initialization complete")
 
     def search(self, query: str, top_k: int = 3) -> str:
-        
         try:
-            
-        # 1. Vector retrieval (search similar chunks)
-            if hasattr(self, 'vector_store') and self.vector_store is not None:
-                relevant_docs = self.vector_store.query(query, top_k=top_k)
-                if relevant_docs:
-                    docs_context = "\n\n".join([doc["page_content"] for doc in relevant_docs if "page_content" in doc])
-                    prompt = f"""You are a helpful assistant. Use the following document excerpts to answer the user's question:
-    {docs_context}
-
-    User question: {query}
-
-    Answer as informatively as possible based only on this document context."""
+            if self.vector_store is not None:
+                results = self.vector_store.query(query, top_k=top_k)
+                if results:
+                    docs_context = "\n\n".join([r["page_content"] for r in results if "page_content" in r])
+                    prompt = f"""Here are the relevant parts of the uploaded document:\n{docs_context}\n\nUser question: {query}\nAnswer based only on the document context."""
                 else:
-                    prompt = f"User question: {query}\n(No relevant document content found.)"
+                    prompt = f"User question: {query}\nNo relevant document context found."
             else:
-                prompt = f"User question: {query}\n(No vector store available.)"
+                prompt = f"User question: {query}\nNo vector store available!"
 
         # 2. Pass to LLM
             from langchain_groq import ChatGroq
@@ -85,6 +79,7 @@ if __name__ == "__main__":
         print(f"Test result: {result}")
     else:
         print("ERROR: No GROQ_API_KEY found in .env file")
+
 
 
 
