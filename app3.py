@@ -79,7 +79,7 @@ def process_document(uploaded_file):
             persist_dir=os.path.join(temp_dir, "faiss_store"),
             data_dir=data_dir,
             embedding_model="all-MiniLM-L6-v2",
-            llm_model="llama2-70b", # Use supported Groq model!
+            llm_model="llama-3.1-8b-instant", # Use supported Groq model!
             groq_api_key=api_key,
             vector_store=vector_manager
         )
