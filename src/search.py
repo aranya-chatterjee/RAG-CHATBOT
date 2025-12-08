@@ -29,47 +29,35 @@ class RAGSearch:
         print(f"[RAGSearch] Initialization complete")
 
     def search(self, query: str, top_k: int = 3) -> str:
-        """
-        Simple fallback search, returning a helpful general response.
-        """
-        print(f"[RAGSearch] search() called with query: '{query}'")
-
-        try:
-            # Import here to avoid circular imports
-            from langchain_groq import ChatGroq
-
-            # Initialize LLM
-            llm = ChatGroq(
-                groq_api_key=self.api_key,
-                model_name=self.llm_model,
-                temperature=0.1,
-                max_tokens=512
-            )
-
-            # Simple prompt
-            prompt = f"""You are a helpful assistant. The user has uploaded a document and is asking about it.
+    try:
+        # 1. Vector retrieval (search similar chunks)
+        if hasattr(self, 'vector_store') and self.vector_store is not None:
+            relevant_docs = self.vector_store.query(query, top_k=top_k)
+            if relevant_docs:
+                docs_context = "\n\n".join([doc["page_content"] for doc in relevant_docs if "page_content" in doc])
+                prompt = f"""You are a helpful assistant. Use the following document excerpts to answer the user's question:
+{docs_context}
 
 User question: {query}
 
-Since I'm having technical issues with my document search system, please provide a helpful response based on general knowledge.
+Answer as informatively as possible based only on this document context."""
+            else:
+                prompt = f"User question: {query}\n(No relevant document content found.)"
+        else:
+            prompt = f"User question: {query}\n(No vector store available.)"
 
-Answer the question helpfully:"""
-
-            # Get response
-            response = llm.invoke(prompt)
-            answer = getattr(response, "content", str(response)).strip()
-
-            print(f"[RAGSearch] Generated response: {answer[:100]}...")
-            return answer
-        except Exception as e:
-            error_msg = f"Error: {str(e)}"
-            print(f"[RAGSearch ERROR] {error_msg}")
-            return (
-                f"I'm here! You asked: '{query}'. "
-                "I can hear you but I'm having trouble processing the document. "
-                "Please try again or re-upload the document."
-            )
-
+        # 2. Pass to LLM
+        from langchain_groq import ChatGroq
+        llm = ChatGroq(
+            groq_api_key=self.api_key,
+            model_name=self.llm_model,
+            temperature=0.1,
+            max_tokens=512
+        )
+        response = llm.invoke(prompt)
+        return getattr(response, "content", str(response)).strip()
+    except Exception as e:
+        return f"[ERROR] {e}"
 # Test function
 if __name__ == "__main__":
     print("Testing RAGSearch...")
@@ -91,6 +79,7 @@ if __name__ == "__main__":
         print(f"Test result: {result}")
     else:
         print("ERROR: No GROQ_API_KEY found in .env file")
+
 
 
 
