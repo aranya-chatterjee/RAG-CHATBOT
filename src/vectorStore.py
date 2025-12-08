@@ -4,7 +4,7 @@ import faiss
 import numpy as np 
 import pickle 
 from langchain_community.vectorstores import FAISS
-from langchain.schema import Document
+# from langchain.schema import Document
 from ChunkAndEmbed import EmbeddingPipeline
 
 class VectorStoreManager:
@@ -294,3 +294,4 @@ class VectorStoreManager:
             info["docstore_size"] = len(self.vector_store.docstore._dict)
         
         return info
+
