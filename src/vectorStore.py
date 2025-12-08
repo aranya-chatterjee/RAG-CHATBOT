@@ -107,12 +107,32 @@ class VectorStoreManager:
             print("[ERROR] Vector store not loaded.")
             return []
         try:
+        # Encode the query
             query_embedding = self.embedding_pipeline.model.encode([query_text], show_progress_bar=False)
-            results = self.vector_store.similarity_search_by_vector(np.array(query_embedding[0], dtype="float32"), k=top_k)
+        
+        # Convert to proper format - ensure it's 2D
+            query_vector = np.array(query_embedding, dtype="float32")
+        
+        # Reshape to 2D if needed
+            if query_vector.ndim == 1:
+                query_vector = query_vector.reshape(1, -1)
+            
+        # Use the FAISS similarity_search method instead (it handles embeddings internally)
+        # OR fix the similarity_search_by_vector call:
+            results = self.vector_store.similarity_search_by_vector(
+                query_vector[0],  # Pass the first (and only) vector
+                k=top_k
+            )
+        
+        # Alternative: Use similarity_search with text (if embedding function is set up)
+        # results = self.vector_store.similarity_search(query_text, k=top_k)
+        
             print(f"[INFO] Retrieved {len(results)} results for the query.")
             return results
         except Exception as e:
             print(f"[ERROR] Vector query failed: {e}")
+            import traceback
+            traceback.print_exc()
             return []
         
     
@@ -136,5 +156,6 @@ class VectorStoreManager:
 #     # vsm2 = VectorStoreManager()
 #     # vsm2.load()
 #     # results2 = vsm2.search("another query", top_k=3)
+
 
 
