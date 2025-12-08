@@ -37,14 +37,39 @@ class RAGSearch:
     def search(self, query: str, top_k: int = 3) -> str:
         try:
             if self.vector_store is not None:
+            # DEBUG: Check vector store
+                print(f"[DEBUG] Vector store type: {type(self.vector_store)}")
+            
+            # Try to query
                 results = self.vector_store.query(query, top_k=top_k)
+                print(f"[DEBUG] Query returned {len(results)} results")
+            
                 if results:
-                    docs_context = "\n\n".join([r["page_content"] for r in results if "page_content" in r])
-                    prompt = f"""Here are the relevant parts of the uploaded document:\n{docs_context}\n\nUser question: {query}\nAnswer based only on the document context."""
-                else:
-                    prompt = f"User question: {query}\nNo relevant document context found."
+                # Extract content - handle different result types
+                    context_parts = []
+                    for r in results:
+                        if hasattr(r, 'page_content'):
+                            context_parts.append(r.page_content)
+                        elif isinstance(r, dict):
+                            context_parts.append(r.get('page_content', str(r)))
+                        else:
+                            context_parts.append(str(r))
+                
+                    docs_context = "\n---\n".join(context_parts[:3])  # Limit to 3
+                
+                    prompt = f"""Use this information to answer the question:
+
+    {docs_context}
+
+    Question: {query}
+
+    Answer:"""
             else:
-                prompt = f"User question: {query}\nNo vector store available!"
+                prompt = f"""I couldn't find information about {query} in the document.
+
+Please try asking about something in the document or rephrase your question."""
+        
+        
 
         # 2. Pass to LLM
             from langchain_groq import ChatGroq
@@ -79,6 +104,7 @@ if __name__ == "__main__":
         print(f"Test result: {result}")
     else:
         print("ERROR: No GROQ_API_KEY found in .env file")
+
 
 
 
