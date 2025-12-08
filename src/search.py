@@ -1,5 +1,9 @@
 import os
 from dotenv import load_dotenv
+from vectorStore import VectorStoreManager
+from ChunkAndEmbed import EmbeddingPipeline
+from data_loader import load_documents
+# from langchain_groq import ChatGroq
 
 # Load environment variables once
 load_dotenv()
@@ -79,6 +83,7 @@ if __name__ == "__main__":
         print(f"Test result: {result}")
     else:
         print("ERROR: No GROQ_API_KEY found in .env file")
+
 
 
 
