@@ -8,6 +8,18 @@ import pickle
 from sentence_transformers import SentenceTransformer 
 from ChunkAndEmbed import EmbeddingPipeline
 
+# Remove the Document import from langchain.schema
+# We'll create our own simple Document class or use what's available
+
+class SimpleDocument:
+    """Simple document class to replace langchain.schema.Document"""
+    def __init__(self, page_content: str, metadata: dict = None):
+        self.page_content = page_content
+        self.metadata = metadata or {}
+    
+    def __repr__(self):
+        return f"SimpleDocument(page_content='{self.page_content[:50]}...', metadata={self.metadata})"
+
 class VectorStoreManager:
     def __init__(self, persist_path: str="faiss_store", embed_model:str="all-MiniLM-L6-v2", chunk_size:int=1000, chunk_overlap:int=200):
         self.persist_path = persist_path
@@ -46,7 +58,7 @@ class VectorStoreManager:
                 doc_meta = getattr(documents[i], 'metadata', {})
                 if isinstance(doc_meta, dict) and 'source' in doc_meta:
                     source = doc_meta['source']
-            metadatas.append({"source": source, "chunk_id": i, "text": chunks[i][:50] + "..."})
+            metadatas.append({"source": source, "chunk_id": i})
         
         # CRITICAL FIX: Create proper embedding function
         class SimpleEmbeddingFunction:
@@ -70,11 +82,11 @@ class VectorStoreManager:
         index.add(embeddings_np)
         print(f"    Index now has {index.ntotal} vectors")
         
-        # Create docstore
+        # Create docstore using SimpleDocument instead of langchain.schema.Document
         docstore_dict = {}
         for i in range(len(chunks)):
-            from langchain.schema import Document
-            docstore_dict[str(i)] = Document(
+            # Use SimpleDocument instead of Document
+            docstore_dict[str(i)] = SimpleDocument(
                 page_content=chunks[i],
                 metadata=metadatas[i]
             )
@@ -120,6 +132,9 @@ class VectorStoreManager:
             
             if len(results) > 0:
                 print("   ✅ Vector store works!")
+                # Show what was found
+                for r in results:
+                    print(f"     Found: {r.page_content[:100]}...")
             else:
                 print("   ❌ No results found!")
                 print("   Trying individual words...")
@@ -214,18 +229,15 @@ class VectorStoreManager:
             
             print(f"[QUERY] Found {len(results)} results")
             
-            # If no results, try fallback method
-            if len(results) == 0:
-                print("[QUERY] No results with similarity_search, trying direct FAISS search...")
-                results = self._direct_faiss_search(query_text, top_k)
-            
             return results
             
         except Exception as e:
             print(f"[ERROR] Query failed: {e}")
             import traceback
             traceback.print_exc()
-            return []
+            
+            # Fallback: Try direct search
+            return self._direct_faiss_search(query_text, top_k)
     
     def _direct_faiss_search(self, query_text: str, top_k: int = 5) -> List[Any]:
         """Direct FAISS search as fallback."""
@@ -255,4 +267,3 @@ class VectorStoreManager:
     
     def search(self, query_text: str, top_k: int = 5) -> List[Any]:
         return self.query(query_text, top_k)
-
