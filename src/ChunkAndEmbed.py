@@ -2,7 +2,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer 
 import numpy as np 
 from typing import List, Any
-from src.data_loader import load_documents
+from data_loader import load_documents
 
 class EmbeddingPipeline:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2", chunk_size: int = 1000, chunk_overlap: int = 200):
@@ -57,7 +57,4 @@ class EmbeddingPipeline:
 #     emb_pipe = EmbeddingPipeline()
 #     chunks = emb_pipe.chunk_documents(docs)
 #     embeddings = emb_pipe.embed_chunks(chunks)
-
-#     print("[INFO] Example embedding:", embeddings[0] if len(embeddings) > 0 else None)p
-
-
+#     print("[INFO] Example embedding:", embeddings[0] if len(embeddings) > 0 else None)
