@@ -7,16 +7,14 @@ from pathlib import Path
 # Add current directory to Python path
 sys.path.append(str(Path(__file__).parent / "src"))
 
-
-
 from data_loader import load_documents
 from ChunkAndEmbed import EmbeddingPipeline
 from vectorStore import VectorStoreManager
 from search import RAGSearch
 
 st.set_page_config(
-    page_title="RAG Chatbot",
-    page_icon="🤖",
+    page_title="MasterJi - Document AI Assistant",
+    page_icon="📚",
     layout="wide"
 )
 
@@ -55,7 +53,7 @@ def process_document(uploaded_file):
         st.info(f"📄 Processing file: {uploaded_file.name}")
         
         # Create temporary directory
-        temp_dir = tempfile.mkdtemp(prefix="rag_")
+        temp_dir = tempfile.mkdtemp(prefix="masterji_")
         st.session_state.temp_dir = temp_dir
         data_dir = os.path.join(temp_dir, "data")
         os.makedirs(data_dir, exist_ok=True)
@@ -82,9 +80,7 @@ def process_document(uploaded_file):
         with st.spinner("🔧 Creating embeddings and vector store..."):
             vector_manager = VectorStoreManager(
                 persist_path=os.path.join(temp_dir, "faiss_store"),
-                embed_model="all-MiniLM-L6-v2",
-                # chunk_size=800,
-                # chunk_overlap=100
+                embed_model="all-MiniLM-L6-v2"
             )
             vector_manager.build_vector_store(docs)
             st.session_state.vector_manager = vector_manager
@@ -98,21 +94,21 @@ def process_document(uploaded_file):
             st.error("❌ Missing API key. Set GROQ_API_KEY in secrets.")
             return None, None, temp_dir
 
-        # 4. Initialize RAGSearch - IMPORTANT: Pass vector_store_manager not vector_store
-        with st.spinner("⚙️ Initializing RAG system..."):
+        # 4. Initialize RAGSearch
+        with st.spinner("⚙️ Initializing MasterJi AI system..."):
             rag_search = RAGSearch(
                 persist_dir=os.path.join(temp_dir, "faiss_store"),
                 data_dir=data_dir,
                 embedding_model="all-MiniLM-L6-v2",
-                llm_model="llama-3.1-8b-instant",  # Supported Groq model
+                llm_model="llama-3.1-8b-instant",
                 groq_api_key=api_key,
-                vector_store_manager=vector_manager  # Pass the manager, not vector_store
+                vector_store_manager=vector_manager
             )
 
-        st.success("✅ RAG system initialized!")
+        st.success("✅ MasterJi initialized successfully!")
         
         # 5. Test the vector store
-        with st.spinner("🧪 Testing vector store..."):
+        with st.spinner("🧪 Testing knowledge base..."):
             if docs and hasattr(docs[0], 'page_content'):
                 # Extract first meaningful word for testing
                 sample_text = docs[0].page_content
@@ -123,9 +119,9 @@ def process_document(uploaded_file):
                     test_results = vector_manager.query(test_word, top_k=1)
                     
                     if test_results:
-                        st.success(f"✅ Vector store test passed! Found matches for '{test_word}'")
+                        st.success(f"✅ Knowledge base test passed! Found matches for '{test_word}'")
                     else:
-                        st.warning(f"⚠️ Vector store built but no matches for '{test_word}'")
+                        st.warning(f"⚠️ Knowledge base built but no matches for '{test_word}'")
         
         return rag_search, uploaded_file.name, temp_dir
 
@@ -138,7 +134,7 @@ def process_document(uploaded_file):
 
 # Sidebar
 with st.sidebar:
-    st.title("🤖 RAG Chatbot")
+    st.title("📚 MasterJi")
     st.markdown("---")
     
     # API Key status
@@ -162,8 +158,8 @@ with st.sidebar:
     if uploaded_file:
         st.info(f"📄 Selected: {uploaded_file.name}")
         
-        if st.button("🚀 Process Document", type="primary", use_container_width=True):
-            with st.spinner(f"Processing {uploaded_file.name}..."):
+        if st.button("🚀 Teach MasterJi", type="primary", use_container_width=True):
+            with st.spinner(f"Teaching MasterJi about {uploaded_file.name}..."):
                 rag_search, filename, temp_dir = process_document(uploaded_file)
                 
                 if rag_search:
@@ -171,7 +167,7 @@ with st.sidebar:
                     st.session_state.processed_file = filename
                     st.session_state.chats = []
                     st.session_state.processing_error = None
-                    st.success(f"✅ '{filename}' ready for chatting!")
+                    st.success(f"✅ MasterJi is ready to discuss '{filename}'!")
                     st.balloons()
                 else:
                     st.error(f"❌ Processing failed: {st.session_state.processing_error}")
@@ -186,7 +182,7 @@ with st.sidebar:
         # Show debug info in expander
         with st.expander("🔧 System Info", expanded=False):
             if st.session_state.vector_manager:
-                st.write(f"Vector store: {'✅ Built' if st.session_state.vector_manager.vector_store else '❌ Not built'}")
+                st.write(f"Knowledge base: {'✅ Built' if st.session_state.vector_manager.vector_store else '❌ Not built'}")
             st.write(f"Chat history: {len(st.session_state.chats)} messages")
         
         if st.button("🗑️ Clear Session", type="secondary", use_container_width=True):
@@ -196,40 +192,40 @@ with st.sidebar:
     st.caption("💡 Upload a document and ask questions about its content!")
 
 # Main content area
-st.title("💬 RAG Chatbot")
-st.caption("Ask questions about your uploaded documents using AI")
+st.title("📚 MasterJi - Your Document AI Assistant")
+st.caption("Ask intelligent questions about your uploaded documents")
 
 # Chat interface
 if st.session_state.rag_search and st.session_state.vector_manager:
     # Header
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.subheader(f"📚 Chatting about: {st.session_state.processed_file}")
+        st.subheader(f"📖 Discussing: {st.session_state.processed_file}")
     with col2:
         if st.button("🔄 New Chat", type="secondary"):
             st.session_state.chats = []
             st.rerun()
     
     # System status
-    with st.expander("⚙️ System Status", expanded=False):
+    with st.expander("⚙️ MasterJi Status", expanded=False):
         status_col1, status_col2 = st.columns(2)
         with status_col1:
-            st.write("✅ RAG Search initialized")
-            st.write("✅ Vector store ready")
+            st.write("✅ AI Assistant ready")
+            st.write("✅ Knowledge base loaded")
         with status_col2:
             if st.session_state.vector_manager and st.session_state.vector_manager.vector_store:
                 index_size = st.session_state.vector_manager.vector_store.index.ntotal
-                st.write(f"📊 Index size: {index_size} chunks")
+                st.write(f"📊 Knowledge chunks: {index_size}")
     
     # Chat history
     for chat in st.session_state.chats:
         with st.chat_message("user"):
             st.write(chat["user"])
-        with st.chat_message("assistant", avatar="🤖"):
+        with st.chat_message("assistant", avatar="📚"):
             st.write(chat["assistant"])
     
     # Chat input
-    user_input = st.chat_input(f"Ask about {st.session_state.processed_file}...")
+    user_input = st.chat_input(f"Ask MasterJi about {st.session_state.processed_file}...")
     
     if user_input:
         # Add user message to chat
@@ -240,8 +236,8 @@ if st.session_state.rag_search and st.session_state.vector_manager:
             st.write(user_input)
         
         # Get and display assistant response
-        with st.chat_message("assistant", avatar="🤖"):
-            with st.spinner("🤔 Thinking..."):
+        with st.chat_message("assistant", avatar="📚"):
+            with st.spinner("📚 MasterJi is thinking..."):
                 try:
                     # Get response from RAG system
                     answer = st.session_state.rag_search.search(user_input, top_k=3)
@@ -265,12 +261,12 @@ if st.session_state.rag_search and st.session_state.vector_manager:
 else:
     # Welcome/Instructions
     st.markdown("""
-    ## 👋 Welcome to RAG Chatbot!
+    ## 👋 Welcome to MasterJi!
     
-    **Retrieval-Augmented Generation (RAG)** allows you to chat with your documents using AI.
+    **Your intelligent document assistant that understands and answers questions about your documents.**
     
     ### 🚀 **Getting Started:**
-    1. **Get a Groq API key** from [console.groq.com](https://console.groq.com) (free tier available)
+    1. **Get a free Groq API key** from [console.groq.com](https://console.groq.com)
     2. **Add it to Streamlit secrets** (`.streamlit/secrets.toml`):
     ```toml
     GROQ_API_KEY = "your-key-here"
@@ -308,7 +304,7 @@ else:
         Machine learning allows systems to learn from data without explicit programming.
         ```
         
-        **Good questions to ask:**
+        **Good questions to ask MasterJi:**
         - What is artificial intelligence?
         - How does machine learning work?
         - What are the differences between AI and ML?
@@ -318,6 +314,6 @@ else:
 st.markdown("---")
 footer_col1, footer_col2 = st.columns([3, 1])
 with footer_col1:
-    st.caption("🤖 Powered by Groq AI | 🛠️ Built with Streamlit & LangChain")
+    st.caption("📚 Powered by MasterJi AI | 🛠️ Built with Groq & Streamlit")
 with footer_col2:
-    st.caption(f"Version: {len(st.session_state.chats)} messages")
+    st.caption(f"Conversation: {len(st.session_state.chats)} messages")
