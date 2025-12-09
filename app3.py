@@ -83,8 +83,8 @@ def process_document(uploaded_file):
             vector_manager = VectorStoreManager(
                 persist_path=os.path.join(temp_dir, "faiss_store"),
                 embed_model="all-MiniLM-L6-v2",
-                chunk_size=800,
-                chunk_overlap=100
+                # chunk_size=800,
+                # chunk_overlap=100
             )
             vector_manager.build_vector_store(docs)
             st.session_state.vector_manager = vector_manager
