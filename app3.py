@@ -7,10 +7,10 @@ from pathlib import Path
 # Add current directory to Python path
 sys.path.append(str(Path(__file__).parent))
 
-from data_loader import load_documents
-from ChunkAndEmbed import EmbeddingPipeline
-from vectorStore import VectorStoreManager
-from search import RAGSearch
+from src.data_loader import load_documents
+from src.ChunkAndEmbed import EmbeddingPipeline
+from src.vectorStore import VectorStoreManager
+from src.search import RAGSearch
 
 st.set_page_config(
     page_title="RAG Chatbot",
