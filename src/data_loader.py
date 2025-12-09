@@ -40,10 +40,11 @@ def load_documents(data_dir : str) -> List[Any]:
     
 
 # if __name__ == "__main__":
+   
     
-#     test_path = "src\transformer.pdf"  # Replace with actual path
-#     documents = load_documents("src\transformer.pdf")
-#     print(f"Loaded {len(documents)} documents")
-#     for doc in documents:
+#     docs = load_documents("data")
+#     print(f"Loaded {len(docs)} documents")
+#     for d in docs[:3]:   # print first 3 docs
+#         print("---------")
+#         print(d)
 
-#         print(f"Content preview: {doc.page_content[:200]}...")
