@@ -21,7 +21,7 @@ def load_documents(data_dir : str) -> List[Any]:
     data_path = Path(data_dir)
     for file_path in data_path.iterdir():
         if not file_path.is_file() or file_path.name.startswith('.'):
-            # Ignore directories and hidden files
+       
             continue
         
         ext = file_path.suffix.lower()
@@ -47,4 +47,5 @@ def load_documents(data_dir : str) -> List[Any]:
 #     for d in docs[:3]:   # print first 3 docs
 #         print("---------")
 #         print(d)
+
 
