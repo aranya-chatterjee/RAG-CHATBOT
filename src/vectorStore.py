@@ -112,7 +112,7 @@ class VectorStoreManager:
             
             self.vector_store = FAISS.load_local(
                 folder_path=self.persist_path,
-                embeddings=embedding_function,  # Note: parameter name is 'embeddings' not 'embedding'
+                embeddings=embedding_function,  
                 allow_dangerous_deserialization=True
             )
             print(f"Loaded from {self.persist_path}")
@@ -122,3 +122,4 @@ class VectorStoreManager:
             import traceback
             traceback.print_exc()
             return False
+
