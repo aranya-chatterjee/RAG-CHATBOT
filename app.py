@@ -158,7 +158,7 @@ with st.sidebar:
     if uploaded_file:
         st.info(f"📄 Selected: {uploaded_file.name}")
         
-        if st.button("🚀 Teach RAG CHATBOT ", type="primary", use_container_width=True):
+        if st.button("🚀 START CONVERSATION  ", type="primary", use_container_width=True):
             with st.spinner(f"Teaching RAG CHATBOT  about {uploaded_file.name}..."):
                 rag_search, filename, temp_dir = process_document(uploaded_file)
                 
